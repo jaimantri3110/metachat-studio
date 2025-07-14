@@ -40,6 +40,10 @@ const summaryState = {
   latestSummary: 'No messages yet.'
 };
 
+// Track connected users
+let userCounter = 0;
+const connectedUsers = new Map();
+
 // Initialize database
 async function initDatabase() {
   try {
@@ -99,8 +103,26 @@ io.on('connection', (socket) => {
   // Send current summary when client connects
   socket.emit('summary-update', summaryState.latestSummary);
   
+  // Handle username request
+  socket.on('request-username', () => {
+    userCounter++;
+    const username = `User${userCounter}`;
+    connectedUsers.set(socket.id, username);
+    socket.emit('username-assigned', username);
+    console.log(`Assigned username ${username} to socket ${socket.id}`);
+  });
+  
+  // Listen for messages cleared event
+  socket.on('messages-cleared', () => {
+    // Broadcast to all other clients that messages were cleared
+    socket.broadcast.emit('messages-cleared');
+    console.log('Broadcasting messages-cleared to all clients');
+  });
+  
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+    const username = connectedUsers.get(socket.id);
+    connectedUsers.delete(socket.id);
+    console.log(`Client disconnected: ${socket.id} (${username})`);
   });
 });
 

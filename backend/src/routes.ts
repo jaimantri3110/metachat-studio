@@ -32,6 +32,8 @@ export default function routes(
     try {
       const { content, username = 'Anonymous' } = req.body;
       
+      console.log('Received message from:', username, 'Content:', content);
+      
       if (!content) {
         return res.status(400).json({ error: 'Content is required' });
       }
@@ -59,7 +61,7 @@ export default function routes(
 
       const newMessage = {
         ...messageResult.rows[0],
-        username
+        username  // Use the username from the request
       };
 
       // Publish to Redis
@@ -130,6 +132,31 @@ export default function routes(
   // Get latest AI summary
   router.get('/summary', (req, res) => {
     res.json({ summary: summaryState.latestSummary });
+  });
+
+  // Delete all messages
+  router.delete('/messages', async (req, res) => {
+    try {
+      // Delete all messages
+      await pool.query('DELETE FROM messages');
+      
+      // Delete all users except Anonymous to reset usernames
+      await pool.query("DELETE FROM users WHERE username != 'Anonymous'");
+      
+      // Reset the summary
+      summaryState.latestSummary = 'No messages yet.';
+      
+      // Emit to ALL connected clients (including the one who initiated)
+      io.emit('messages-cleared');
+      io.emit('summary-update', 'No messages yet.');
+      
+      console.log('Messages deleted and all clients notified');
+      
+      res.json({ message: 'All messages deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting messages:', error);
+      res.status(500).json({ error: 'Failed to delete messages' });
+    }
   });
 
   return router;

@@ -6,7 +6,13 @@ WORKDIR /app
 COPY package.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm install --legacy-peer-deps
+
+# Copy configuration files
+COPY tailwind.config.js ./
+COPY postcss.config.js ./
+COPY tsconfig.json ./
+COPY next.config.js ./
 
 # Copy all files
 COPY . .
